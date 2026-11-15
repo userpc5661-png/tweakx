@@ -3,7 +3,7 @@ name: Build RiseYT
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches: [main, master, 'fix/**']
     paths:
       - 'Tweak.x'
       - 'Tweak.xm'
