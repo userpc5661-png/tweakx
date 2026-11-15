@@ -1178,8 +1178,8 @@ static NSMutableArray *riseyt_buildSettingsItems(UIViewController *settingsVC) {
     SEL actionSel = @selector(itemWithTitle:titleDescription:accessibilityIdentifier:detailTextBlock:selectBlock:);
     BOOL canAction = [itemClass respondsToSelector:actionSel];
     if (canAction) {
-        id dl = [itemClass itemWithTitle:@"📥 Download current video"
-                        titleDescription:@"Choose a quality for the video that's playing"
+        id dl = [itemClass itemWithTitle:@"Download current video"
+                        titleDescription:@"Pick a quality for the video that's playing"
                  accessibilityIdentifier:@"riseyt_download_now"
                          detailTextBlock:nil
                              selectBlock:^BOOL(__unused YTSettingsCell *cell, __unused NSUInteger arg1) {
@@ -1187,8 +1187,8 @@ static NSMutableArray *riseyt_buildSettingsItems(UIViewController *settingsVC) {
             return YES;
         }];
         if (dl) [items addObject:dl];
-        id list = [itemClass itemWithTitle:@"🗂️ My Downloads"
-                          titleDescription:@"Progress, pause/resume, share and delete"
+        id list = [itemClass itemWithTitle:@"Downloads"
+                          titleDescription:@"View progress, pause, resume, share or delete"
                    accessibilityIdentifier:@"riseyt_downloads"
                            detailTextBlock:nil
                                selectBlock:^BOOL(__unused YTSettingsCell *cell, __unused NSUInteger arg1) {
@@ -1201,16 +1201,17 @@ static NSMutableArray *riseyt_buildSettingsItems(UIViewController *settingsVC) {
     SEL switchSel = @selector(switchItemWithTitle:titleDescription:accessibilityIdentifier:switchOn:switchBlock:settingItemId:);
     if ([itemClass respondsToSelector:switchSel]) {
         NSArray *rows = @[
-            @[@(RYAdBlock),        @"🚫 Block Ads",            @"Video, feed and banner ads"],
-            @[@(RYBackground),     @"🎵 Background Playback",  @"Keep playing when the app is in the background"],
-            @[@(RYPiP),            @"🖼️ Picture in Picture",   @"Allow PiP for videos"],
-            @[@(RYPremium),        @"🎖️ Premium Flags",        @"Turn on client-side premium feature flags"],
-            @[@(RYHighRes),        @"📺 High Resolutions",     @"Unlock 1440p / 4K options where the video has them"],
-            @[@(RYDownloadButton), @"⬇️ Download Button",      @"Show the download button on the player"],
-            @[@(RYSavePhotos),     @"📷 Save Downloads to Photos", @"Also copy finished videos to the Photos app"],
-            @[@(RYThumbs),         @"🖼️ HQ Thumbnails",        @"Load higher-resolution thumbnails"],
-            @[@(RYHideEndscreen),  @"⏭️ Hide Autoplay Endscreen", @"Hide the end-of-video autoplay overlay"],
-            @[@(RYGlass),          @"💎 Liquid Glass UI",      @"Frosted glass tab bar (restart YouTube to apply)"],
+            // Ordered by group: downloads, playback, ads, appearance.
+            @[@(RYDownloadButton), @"Download button",          @"Show the download button on the player"],
+            @[@(RYSavePhotos),     @"Save downloads to Photos", @"Also copy finished videos to the Photos app"],
+            @[@(RYBackground),     @"Background playback",      @"Keep audio playing when the app is in the background"],
+            @[@(RYPiP),            @"Picture in Picture",       @"Allow Picture in Picture for videos"],
+            @[@(RYPremium),        @"Premium features",         @"Enable client-side premium feature flags"],
+            @[@(RYHighRes),        @"High resolutions",         @"Show 1440p and 4K where the video offers them"],
+            @[@(RYAdBlock),        @"Block ads",                @"Remove video, feed and banner ads"],
+            @[@(RYHideEndscreen),  @"Hide autoplay endscreen",  @"Hide the end-of-video autoplay overlay"],
+            @[@(RYThumbs),         @"High-quality thumbnails",  @"Load sharper video thumbnails"],
+            @[@(RYGlass),          @"Liquid Glass",             @"Frosted glass tab bar (restart YouTube to apply)"],
         ];
         for (NSArray *row in rows) {
             RiseYTPref pref = (RiseYTPref)[row[0] unsignedIntegerValue];
@@ -1228,8 +1229,8 @@ static NSMutableArray *riseyt_buildSettingsItems(UIViewController *settingsVC) {
     }
 
     if (canAction) {
-        id ver = [itemClass itemWithTitle:[@"RiseYT v" stringByAppendingString:RISEYT_VERSION]
-                         titleDescription:@"Enhanced YouTube experience"
+        id ver = [itemClass itemWithTitle:[@"RiseYT " stringByAppendingString:RISEYT_VERSION]
+                         titleDescription:@"Version"
                   accessibilityIdentifier:@"riseyt_version"
                           detailTextBlock:nil
                               selectBlock:^BOOL(__unused YTSettingsCell *cell, __unused NSUInteger arg1) { return NO; }];
