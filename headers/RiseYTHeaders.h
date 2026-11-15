@@ -119,9 +119,15 @@
 //  RiseYT Classes
 // ─────────────────────────────────────────
 
+@class RiseYTDownloadTask;
 @interface RiseYT_DownloadManager : NSObject
 + (instancetype)sharedManager;
 - (void)addDownloadWithURL:(NSURL *)url title:(NSString *)title quality:(NSString *)quality;
+- (void)cancelDownload:(RiseYTDownloadTask *)task;
+- (void)pauseDownload:(RiseYTDownloadTask *)task;
+- (void)resumeDownload:(RiseYTDownloadTask *)task;
+- (NSArray<RiseYTDownloadTask *> *)allDownloads;
+- (NSString *)downloadsDirectory;
 - (void)cancelDownloadAtIndex:(NSUInteger)index;
 - (void)pauseDownloadAtIndex:(NSUInteger)index;
 - (void)resumeDownloadAtIndex:(NSUInteger)index;
