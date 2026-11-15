@@ -108,6 +108,14 @@
 - (BOOL)isEnabled;
 @end
 
+
+@interface YTAutonavEndscreenViewController : UIViewController
+@end
+@interface YTVideoActionBarView : UIView
+@end
+@interface YTCastDeviceView : UIView
+@end
+
 // ─── Ad Classes ─────────────────────────
 
 @interface YTMainAppAblateAdsCenter : NSObject
