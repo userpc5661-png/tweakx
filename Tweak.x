@@ -117,13 +117,6 @@ static UIViewController *riseyt_topViewController(void) {
     return vc;
 }
 
-static void riseyt_anchorPopover(UIViewController *controller, UIViewController *host) {
-    UIPopoverPresentationController *pop = controller.popoverPresentationController;
-    if (!pop || !host.view) return;
-    pop.sourceView = host.view;
-    pop.sourceRect = CGRectMake(CGRectGetMidX(host.view.bounds), CGRectGetMidY(host.view.bounds), 1, 1);
-    pop.permittedArrowDirections = 0;
-}
 
 static void riseyt_postOnMain(NSString *name, id object) {
     dispatch_async(dispatch_get_main_queue(), ^{
