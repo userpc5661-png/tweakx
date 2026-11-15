@@ -291,7 +291,6 @@ static void applyLiquidGlass(UIView *view) {
     task.isPaused = YES;
     [task.sessionTask cancelByProducingResumeData:^(NSData *resumeData) {
         if (resumeData) {
-            NSString *key = [task.url absoluteString];
             task.resumeData = resumeData;
         }
     }];
@@ -468,7 +467,7 @@ static void applyLiquidGlass(UIView *view) {
     UIAlertAction *cancel = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
     [sheet addAction:cancel];
 
-    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+    if (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad) {
         sheet.popoverPresentationController.sourceView = vc.view;
         sheet.popoverPresentationController.sourceRect = CGRectMake(vc.view.bounds.size.width/2, vc.view.bounds.size.height, 1, 1);
     }
@@ -478,6 +477,15 @@ static void applyLiquidGlass(UIView *view) {
 @end
 
 @implementation RiseYTQualityOption
+- (instancetype)initWithLabel:(NSString *)label url:(NSString *)url bitrate:(NSInteger)bitrate {
+    self = [super init];
+    if (self) {
+        self.label = label;
+        self.url = url;
+        self.bitrate = bitrate;
+    }
+    return self;
+}
 + (instancetype)optionWithLabel:(NSString *)label itag:(NSString *)itag resolution:(NSString *)resolution {
     RiseYTQualityOption *o = [self new];
     o.label = label;
@@ -553,6 +561,12 @@ static void applyLiquidGlass(UIView *view) {
 @end
 
 @implementation RiseYTDownloadsViewController
++ (instancetype)sharedController {
+    static RiseYTDownloadsViewController *controller;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ controller = [RiseYTDownloadsViewController new]; });
+    return controller;
+}
 
 - (void)viewDidLoad {
     [super viewDidLoad];
