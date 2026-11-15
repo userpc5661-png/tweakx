@@ -1,4 +1,4 @@
-name: Build RiseYT dylib
+name: Build RiseYT
 
 on:
   workflow_dispatch:
@@ -17,43 +17,36 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Validate project source
-        shell: bash
+      - name: Verify complete source exists
         run: |
-          set -euo pipefail
-          test -f Makefile || { echo "::error::Makefile is missing"; exit 1; }
           if [ ! -f Tweak.x ]; then
-            echo "::error file=Tweak.x::Missing main Logos source: Tweak.x. Upload your full tweak implementation before building."
+            echo "::error file=Tweak.x::Missing the implementation source Tweak.x. Headers alone cannot produce RiseYT.dylib."
             exit 1
           fi
-          echo "Found Tweak.x, ready to compile."
 
-      - name: Install dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bash curl git make build-essential fakeroot rsync perl zip unzip libxml2
+          sudo apt-get install -y git make clang build-essential fakeroot rsync perl zip unzip libxml2
 
       - name: Install Theos and iOS SDK
         uses: Randomblock1/theos-action@v1
 
-      - name: Build dylib
-        shell: bash
+      - name: Compile tweak
         run: |
-          set -euo pipefail
           make clean
           make -j2 FINALPACKAGE=1
           mkdir -p output
-          dylib="$(find .theos/obj -type f -name 'RiseYT.dylib' -print -quit)"
+          dylib="$(find .theos/obj -type f -name RiseYT.dylib -print -quit)"
           if [ -z "$dylib" ]; then
-            echo "::error::Compilation did not produce RiseYT.dylib"
+            echo "::error::Build did not produce RiseYT.dylib"
             exit 1
           fi
           cp "$dylib" output/RiseYT.dylib
           file output/RiseYT.dylib
-          test -s output/RiseYT.dylib
 
       - name: Upload dylib
         uses: actions/upload-artifact@v4
