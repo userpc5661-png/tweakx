@@ -78,6 +78,7 @@ static void riseyt_setPref(RiseYTPref pref, BOOL on) {
 
 static id riseyt_kvc(id obj, NSString *key) {
     if (!obj || !key) return nil;
+    if ([obj isKindOfClass:[NSDictionary class]]) return ((NSDictionary *)obj)[key];
     @try { return [obj valueForKey:key]; }
     @catch (__unused NSException *e) { return nil; }
 }
@@ -482,21 +483,17 @@ static NSURL *riseyt_streamURL(id format) {
     return url.length ? [NSURL URLWithString:url] : nil;
 }
 
-static NSArray<RiseYTQualityOption *> *riseyt_optionsFromPlayer(UIViewController *player, NSString *__autoreleasing *outTitle) {
-    id response = riseyt_kvc(player, @"contentPlayerResponse") ?: riseyt_kvc(player, @"playerResponse");
-    id data = riseyt_kvc(response, @"playerData");
+// `data` is either a parsed player-response dictionary (network capture)
+// or a YouTube model object exposing the same keys via KVC.
+static NSArray<RiseYTQualityOption *> *riseyt_optionsFromPlayerData(id data, NSString *__autoreleasing *outTitle) {
     id streaming = riseyt_kvc(data, @"streamingData");
 
     NSString *title = riseyt_str(riseyt_kvc(data, @"videoDetails"), @"title");
-    if (!title.length) {
-        NSString *videoID = [player respondsToSelector:@selector(currentVideoID)]
-            ? [(YTPlayerViewController *)player currentVideoID] : nil;
-        title = videoID.length ? [@"YouTube_" stringByAppendingString:videoID] : @"YouTube video";
-    }
+    if (!title.length) title = @"YouTube video";
     if (outTitle) *outTitle = title;
 
-    NSArray *progressive = riseyt_kvc(streaming, @"formatsArray");
-    NSArray *adaptive = riseyt_kvc(streaming, @"adaptiveFormatsArray");
+    NSArray *progressive = riseyt_kvc(streaming, @"formatsArray") ?: riseyt_kvc(streaming, @"formats");
+    NSArray *adaptive = riseyt_kvc(streaming, @"adaptiveFormatsArray") ?: riseyt_kvc(streaming, @"adaptiveFormats");
     if (![progressive isKindOfClass:[NSArray class]]) progressive = @[];
     if (![adaptive isKindOfClass:[NSArray class]]) adaptive = @[];
 
@@ -566,6 +563,78 @@ static NSArray<RiseYTQualityOption *> *riseyt_optionsFromPlayer(UIViewController
 // ═══════════════════════════════════════════════════════
 //  MARK: — DOWNLOAD MANAGER
 // ═══════════════════════════════════════════════════════
+
+// Player responses captured from YouTube's own /youtubei/v1/player request.
+// Reading the JSON from the network is independent of YouTube's internal
+// object names, so it keeps working across app updates.
+static NSObject *gPlayerLock;
+static NSMutableDictionary<NSString *, NSDictionary *> *gPlayerJSON;
+
+static void riseyt_initPlayerCache(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        gPlayerLock = [NSObject new];
+        gPlayerJSON = [NSMutableDictionary new];
+    });
+}
+
+static void riseyt_capturePlayerJSON(NSData *data) {
+    if (!data.length) return;
+    id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    if (![json isKindOfClass:[NSDictionary class]]) return;
+    NSDictionary *root = json;
+    if (![root[@"streamingData"] isKindOfClass:[NSDictionary class]]) return;
+    id details = root[@"videoDetails"];
+    NSString *videoID = [details isKindOfClass:[NSDictionary class]] ? details[@"videoId"] : nil;
+    if (![videoID isKindOfClass:[NSString class]] || !videoID.length) return;
+    riseyt_initPlayerCache();
+    @synchronized (gPlayerLock) {
+        if (gPlayerJSON.count > 20) [gPlayerJSON removeAllObjects];
+        gPlayerJSON[videoID] = root;
+    }
+}
+
+%hook NSURLSession
+- (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
+                            completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))handler {
+    if (!handler || ![request.URL.absoluteString containsString:@"youtubei/v1/player"]) return %orig;
+    return %orig(request, ^(NSData *data, NSURLResponse *response, NSError *error) {
+        riseyt_capturePlayerJSON(data);
+        handler(data, response, error);
+    });
+}
+%end
+
+// Uses the captured response for this exact video first, then YouTube's
+// in-memory player model as a fallback.
+static NSArray<RiseYTQualityOption *> *riseyt_optionsForPlayer(UIViewController *player,
+                                                               NSString *__autoreleasing *outTitle,
+                                                               NSString *__autoreleasing *outDebug) {
+    NSString *videoID = nil;
+    if ([player respondsToSelector:@selector(currentVideoID)]) videoID = [(YTPlayerViewController *)player currentVideoID];
+    if (!videoID.length) videoID = riseyt_str(player, @"videoID");
+
+    riseyt_initPlayerCache();
+    NSDictionary *captured = nil;
+    @synchronized (gPlayerLock) { captured = videoID.length ? gPlayerJSON[videoID] : nil; }
+
+    NSArray<RiseYTQualityOption *> *options = captured ? riseyt_optionsFromPlayerData(captured, outTitle) : @[];
+    BOOL usedFallback = NO;
+    if (!options.count) {
+        id response = riseyt_kvc(player, @"contentPlayerResponse") ?: riseyt_kvc(player, @"playerResponse");
+        id data = riseyt_kvc(response, @"playerData");
+        if (data) {
+            usedFallback = YES;
+            options = riseyt_optionsFromPlayerData(data, outTitle);
+        }
+    }
+    if (outDebug) {
+        *outDebug = [NSString stringWithFormat:@"video=%@ captured=%@ fallback=%@ options=%lu",
+                     videoID ?: @"?", captured ? @"yes" : @"no", usedFallback ? @"yes" : @"no",
+                     (unsigned long)options.count];
+    }
+    return options;
+}
 
 static NSString * const kRiseYTDownloadsChanged = @"RiseYTDownloadsChanged";
 
@@ -1067,7 +1136,8 @@ static void riseyt_presentDownloadSheet(void) {
     if (!host) return;
     UIViewController *player = riseyt_currentPlayer;
     NSString *title = nil;
-    NSArray<RiseYTQualityOption *> *options = player ? riseyt_optionsFromPlayer(player, &title) : @[];
+    NSString *debug = nil;
+    NSArray<RiseYTQualityOption *> *options = player ? riseyt_optionsForPlayer(player, &title, &debug) : @[];
 
     UIAlertController *sheet;
     if (options.count == 0) {
@@ -1090,6 +1160,9 @@ static void riseyt_presentDownloadSheet(void) {
     [sheet addAction:[UIAlertAction actionWithTitle:@"My Downloads" style:UIAlertActionStyleDefault
         handler:^(__unused UIAlertAction *a) { riseyt_presentDownloads(nil); }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    if (options.count == 0 && debug) {
+        sheet.message = [(sheet.message ?: @"") stringByAppendingFormat:@"\n\n[%@]", debug];
+    }
     riseyt_anchorPopover(sheet, host);
     [host presentViewController:sheet animated:YES completion:nil];
 }
