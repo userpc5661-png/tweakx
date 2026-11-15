@@ -218,7 +218,7 @@ static void applyLiquidGlass(UIView *view) {
 - (void)viewDidLoad {
     %orig;
     dispatch_async(dispatch_get_main_queue(), ^{
-        applyLiquidGlass(self.tabBar);
+        applyLiquidGlass(self.view);
     });
 }
 %end
@@ -312,6 +312,34 @@ static void applyLiquidGlass(UIView *view) {
     return [_taskQueue copy];
 }
 
+- (void)cancelDownloadAtIndex:(NSUInteger)index {
+    if (index >= _taskQueue.count) return;
+    [self cancelDownload:_taskQueue[index]];
+}
+- (void)pauseDownloadAtIndex:(NSUInteger)index {
+    if (index >= _taskQueue.count) return;
+    [self pauseDownload:_taskQueue[index]];
+}
+- (void)resumeDownloadAtIndex:(NSUInteger)index {
+    if (index >= _taskQueue.count) return;
+    [self resumeDownload:_taskQueue[index]];
+}
+- (NSArray *)activeDownloads {
+    NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(RiseYTDownloadTask *task, NSDictionary *bindings) {
+        return !task.isCompleted;
+    }];
+    return [_taskQueue filteredArrayUsingPredicate:predicate];
+}
+- (NSArray *)completedDownloads {
+    NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(RiseYTDownloadTask *task, NSDictionary *bindings) {
+        return task.isCompleted;
+    }];
+    return [_taskQueue filteredArrayUsingPredicate:predicate];
+}
+- (NSString *)downloadDirectory {
+    return [self downloadsDirectory];
+}
+
 // NSURLSessionDownloadDelegate
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
     NSString *key = [downloadTask.originalRequest.URL absoluteString];
@@ -361,6 +389,15 @@ static void applyLiquidGlass(UIView *view) {
 
 @implementation RiseYTHLSDownload
 
+- (instancetype)initWithHLSURL:(NSString *)url title:(NSString *)title quality:(NSString *)quality {
+    self = [super init];
+    if (self) {
+        self.hlsURL = url;
+        self.title = title;
+        self.quality = quality;
+    }
+    return self;
+}
 - (void)startDownload {
     if (!self.hlsURL || !self.title) return;
     NSURL *url = [NSURL URLWithString:self.hlsURL];
