@@ -1,87 +1,63 @@
-name: Build RiseYT
+name: Build RiseYT dylib
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, master]
-  pull_request:
-  workflow_dispatch:
+    paths:
+      - 'Tweak.x'
+      - 'Tweak.xm'
+      - 'Makefile'
+      - 'headers/**'
+      - 'RiseYT.plist'
+      - 'control'
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
-    runs-on: macos-latest
-
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache Theos
-        uses: actions/cache@v4
-        with:
-          path: /opt/theos
-          key: ${{ runner.os }}-theos-${{ hashFiles('Makefile') }}
-          restore-keys: |
-            ${{ runner.os }}-theos-
-
-      - name: Install Theos
+      - name: Validate project source
+        shell: bash
         run: |
-          set -e
-          if [ ! -d /opt/theos ]; then
-            sudo mkdir -p /opt/theos
-            sudo chown $USER /opt/theos
-            bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+          set -euo pipefail
+          test -f Makefile || { echo "::error::Makefile is missing"; exit 1; }
+          if [ ! -f Tweak.x ]; then
+            echo "::error file=Tweak.x::Missing main Logos source: Tweak.x. Upload your full tweak implementation before building."
+            exit 1
           fi
-          echo "THEOS=/opt/theos" >> $GITHUB_ENV
+          echo "Found Tweak.x, ready to compile."
 
-      - name: Install iOS SDK
+      - name: Install dependencies
         run: |
-          set -e
-          SDK_VERSION="16.5"
-          SDK_URL="https://github.com/theos/sdks/releases/download/main/iPhoneOS${SDK_VERSION}.sdk.tar.xz"
-          SDK_DIR="/opt/theos/sdks"
-          mkdir -p "$SDK_DIR"
-          if [ ! -d "${SDK_DIR}/iPhoneOS${SDK_VERSION}.sdk" ]; then
-            curl -L "$SDK_URL" | tar -xJf - -C "$SDK_DIR"
+          sudo apt-get update
+          sudo apt-get install -y bash curl git make build-essential fakeroot rsync perl zip unzip libxml2
+
+      - name: Install Theos and iOS SDK
+        uses: Randomblock1/theos-action@v1
+
+      - name: Build dylib
+        shell: bash
+        run: |
+          set -euo pipefail
+          make clean
+          make -j2 FINALPACKAGE=1
+          mkdir -p output
+          dylib="$(find .theos/obj -type f -name 'RiseYT.dylib' -print -quit)"
+          if [ -z "$dylib" ]; then
+            echo "::error::Compilation did not produce RiseYT.dylib"
+            exit 1
           fi
+          cp "$dylib" output/RiseYT.dylib
+          file output/RiseYT.dylib
+          test -s output/RiseYT.dylib
 
-      - name: Build
-        run: |
-          export THEOS=/opt/theos
-          make package FINALPACKAGE=1
-
-      - name: Upload .deb artifact
+      - name: Upload dylib
         uses: actions/upload-artifact@v4
         with:
-          name: RiseYT-${{ github.sha }}
-          path: packages/*.deb
+          name: RiseYT-dylib
+          path: output/RiseYT.dylib
           if-no-files-found: error
-
-      - name: Upload .dylib artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: RiseYT-dylib-${{ github.sha }}
-          path: |
-            .theos/obj/RiseYT.dylib
-            obj/**/*.dylib
-          if-no-files-found: warn
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: RiseYT-${{ github.sha }}
-          path: ./release
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ github.run_number }}
-          name: RiseYT v${{ github.run_number }}
-          files: ./release/*.deb
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
