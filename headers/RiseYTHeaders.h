@@ -36,6 +36,16 @@
 // ─── Settings ───────────────────────────
 
 @interface YTSettingsSectionItem : NSObject
++ (instancetype)checkboxItemWithTitle:(NSString *)title
+                    titleDescription:(NSString *)description
+             accessibilityIdentifier:(NSString *)identifier
+                            switchOn:(BOOL)enabled
+                         switchBlock:(void (^)(id cell, BOOL on))switchBlock;
++ (instancetype)itemWithTitle:(NSString *)title
+            titleDescription:(NSString *)description
+     accessibilityIdentifier:(NSString *)identifier
+                  detailText:(NSString *)detailText
+                 selectBlock:(void (^)(id cell, NSIndexPath *indexPath))selectBlock;
 + (instancetype)itemWithTitle:(NSString *)title
                      accessoryType:(NSInteger)accessoryType
                accessibilityLabel:(NSString *)accessibilityLabel
@@ -52,11 +62,19 @@
 @interface YTSettingsViewController : UIViewController
 - (void)setSectionItems:(NSArray *)items forCategory:(NSInteger)category title:(NSString *)title;
 - (void)reloadData;
+- (void)riseyt_injectSettings;
 @end
 
 // ─── UI Classes ─────────────────────────
 
 @interface YTTabBarViewController : UIViewController
+@end
+
+@interface YTWatchNextResultsViewController : UIViewController
+- (void)riseyt_addDownloadButton;
+- (void)riseyt_downloadTapped:(id)sender;
+- (NSString *)riseyt_currentVideoID;
+- (NSString *)riseyt_currentVideoTitle;
 @end
 
 @interface YTPivotBarView : UIView
@@ -165,6 +183,7 @@
 @end
 
 @interface RiseYTQualityOption : NSObject
+- (instancetype)initWithLabel:(NSString *)label url:(NSString *)url bitrate:(NSInteger)bitrate;
 + (instancetype)optionWithLabel:(NSString *)label itag:(NSString *)itag resolution:(NSString *)resolution;
 @property (nonatomic, copy) NSString *itag;
 @property (nonatomic, copy) NSString *resolution;
