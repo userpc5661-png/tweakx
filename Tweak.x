@@ -233,6 +233,9 @@ static void applyLiquidGlass(UIView *view) {
 @property (nonatomic, strong) NSMutableArray<RiseYTDownloadTask *> *taskQueue;
 @end
 
+@implementation RiseYTDownloadTask
+@end
+
 @implementation RiseYT_DownloadManager
 
 + (instancetype)sharedManager {
@@ -411,6 +414,25 @@ static void applyLiquidGlass(UIView *view) {
 // ═══════════════════════════════════════════════════════
 
 @implementation RiseYTQualitySheet
++ (void)presentWithOptions:(NSArray<RiseYTQualityOption *> *)options
+            fromController:(UIViewController *)controller
+               completion:(void (^)(RiseYTQualityOption *selected))completion {
+    if (!controller) return;
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Download quality"
+        message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    for (RiseYTQualityOption *option in options) {
+        [sheet addAction:[UIAlertAction actionWithTitle:option.label ?: @"Quality"
+            style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+                if (completion) completion(option);
+            }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    if (sheet.popoverPresentationController) {
+        sheet.popoverPresentationController.sourceView = controller.view;
+        sheet.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(controller.view.bounds), CGRectGetMidY(controller.view.bounds), 1, 1);
+    }
+    [controller presentViewController:sheet animated:YES completion:nil];
+}
 
 - (instancetype)initWithVideoID:(NSString *)videoID title:(NSString *)title completion:(void(^)(NSString *quality, NSString *url))completion {
     self = [super init];
