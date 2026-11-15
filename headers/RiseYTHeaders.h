@@ -139,6 +139,7 @@
 @property (nonatomic, assign) BOOL isCompleted;
 @property (nonatomic, strong) NSString *localPath;
 @property (nonatomic, strong) NSURLSessionDownloadTask *sessionTask;
+@property (nonatomic, strong) NSData *resumeData;
 @end
 
 @interface RiseYTDownloadsViewController : UIViewController
@@ -155,6 +156,9 @@
 @end
 
 @interface RiseYTQualityOption : NSObject
++ (instancetype)optionWithLabel:(NSString *)label itag:(NSString *)itag resolution:(NSString *)resolution;
+@property (nonatomic, copy) NSString *itag;
+@property (nonatomic, copy) NSString *resolution;
 @property (nonatomic, strong) NSString *label;
 @property (nonatomic, strong) NSString *url;
 @property (nonatomic, assign) NSInteger bitrate;
@@ -162,6 +166,12 @@
 @end
 
 @interface RiseYTQualitySheet : UIView
+@property (nonatomic, copy) NSString *videoID;
+@property (nonatomic, copy) NSString *videoTitle;
+@property (nonatomic, copy) void (^completion)(NSString *quality, NSString *itag);
+@property (nonatomic, copy) NSArray<RiseYTQualityOption *> *qualities;
+- (instancetype)initWithVideoID:(NSString *)videoID title:(NSString *)title completion:(void(^)(NSString *, NSString *))completion;
+- (void)presentFromViewController:(UIViewController *)vc;
 + (void)presentWithOptions:(NSArray<RiseYTQualityOption *> *)options
               fromController:(UIViewController *)controller
                  completion:(void (^)(RiseYTQualityOption *selected))completion;
