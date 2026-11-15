@@ -1,0 +1,27 @@
+name: Restore extracted Tweak.x source
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Tweak.x.gz.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode source and commit
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, pathlib
+          data = pathlib.Path('Tweak.x.gz.b64').read_text().strip()
+          source = gzip.decompress(base64.b64decode(data))
+          pathlib.Path('Tweak.x').write_bytes(source)
+          print('Restored Tweak.x',len(source),'bytes')
+          PY
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add Tweak.x
+          git diff --cached --quiet || (git commit -m "Restore extracted Tweak.x source" && git push)
