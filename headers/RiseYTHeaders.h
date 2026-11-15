@@ -80,6 +80,9 @@
 @interface YTSubheaderContainerView : UIView
 @end
 
+@interface YTHeaderContentComboView : UIView
+@end
+
 @interface YTFloatingBarExperiment : NSObject
 - (BOOL)isEnabled;
 @end
