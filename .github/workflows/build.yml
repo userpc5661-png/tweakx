@@ -1,0 +1,87 @@
+name: Build RiseYT
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Theos
+        uses: actions/cache@v4
+        with:
+          path: /opt/theos
+          key: ${{ runner.os }}-theos-${{ hashFiles('Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-theos-
+
+      - name: Install Theos
+        run: |
+          set -e
+          if [ ! -d /opt/theos ]; then
+            sudo mkdir -p /opt/theos
+            sudo chown $USER /opt/theos
+            bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+          fi
+          echo "THEOS=/opt/theos" >> $GITHUB_ENV
+
+      - name: Install iOS SDK
+        run: |
+          set -e
+          SDK_VERSION="16.5"
+          SDK_URL="https://github.com/theos/sdks/releases/download/main/iPhoneOS${SDK_VERSION}.sdk.tar.xz"
+          SDK_DIR="/opt/theos/sdks"
+          mkdir -p "$SDK_DIR"
+          if [ ! -d "${SDK_DIR}/iPhoneOS${SDK_VERSION}.sdk" ]; then
+            curl -L "$SDK_URL" | tar -xJf - -C "$SDK_DIR"
+          fi
+
+      - name: Build
+        run: |
+          export THEOS=/opt/theos
+          make package FINALPACKAGE=1
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RiseYT-${{ github.sha }}
+          path: packages/*.deb
+          if-no-files-found: error
+
+      - name: Upload .dylib artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RiseYT-dylib-${{ github.sha }}
+          path: |
+            .theos/obj/RiseYT.dylib
+            obj/**/*.dylib
+          if-no-files-found: warn
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: RiseYT-${{ github.sha }}
+          path: ./release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: RiseYT v${{ github.run_number }}
+          files: ./release/*.deb
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

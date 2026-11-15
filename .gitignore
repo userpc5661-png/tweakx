@@ -1,0 +1,42 @@
+# Theos build artifacts
+.theos/
+packages/
+obj/
+*.deb
+*.dylib
+*.zip
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+!default.pbxuser
+!default.mode1v3
+!default.perspectivev3
+xcuserdata/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+# Build
+build/
+*.o
+*.a
+*.d
+
+# Logs
+*.log
+
+# Env
+.env
+*.pem
