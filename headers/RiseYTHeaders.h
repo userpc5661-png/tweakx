@@ -56,6 +56,9 @@
 
 // ─── UI Classes ─────────────────────────
 
+@interface YTTabBarViewController : UIViewController
+@end
+
 @interface YTPivotBarView : UIView
 @end
 
