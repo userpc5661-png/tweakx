@@ -14,6 +14,13 @@
 
 #define RISEYT_VERSION @"1.4.0"
 
+// RiseYT palette: black, white and yellow.
+#define RY_YELLOW [UIColor colorWithRed:1.0 green:0.84 blue:0.04 alpha:1.0]
+#define RY_BLACK  [UIColor colorWithWhite:0.0 alpha:1.0]
+#define RY_CARD   [UIColor colorWithWhite:0.12 alpha:1.0]
+#define RY_WHITE  [UIColor whiteColor]
+#define RY_MUTED  [UIColor colorWithWhite:0.62 alpha:1.0]
+
 // ═══════════════════════════════════════════════════════
 //  MARK: — PREFERENCES
 //  Every hook below reads these flags at call time, so a
@@ -998,7 +1005,7 @@ static NSString * const kRiseYTDownloadsChanged = @"RiseYTDownloadsChanged";
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"RiseYT Downloads";
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = RY_BLACK;
     self.navigationItem.rightBarButtonItem =
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];
 
@@ -1123,10 +1130,173 @@ static NSString * const kRiseYTDownloadsChanged = @"RiseYTDownloadsChanged";
 
 @end
 
+// ═══════════════════════════════════════════════════════
+//  MARK: — RISEYT UI SHARED PIECES
+// ═══════════════════════════════════════════════════════
+
+static void riseyt_presentDownloads(UIViewController *from);
+
+static void riseyt_styleNav(UINavigationController *nav) {
+    nav.view.backgroundColor = RY_BLACK;
+    UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
+    [appearance configureWithOpaqueBackground];
+    appearance.backgroundColor = RY_BLACK;
+    appearance.titleTextAttributes = @{NSForegroundColorAttributeName: RY_WHITE};
+    appearance.largeTitleTextAttributes = @{NSForegroundColorAttributeName: RY_WHITE};
+    nav.navigationBar.standardAppearance = appearance;
+    nav.navigationBar.scrollEdgeAppearance = appearance;
+    nav.navigationBar.tintColor = RY_YELLOW;
+}
+
+static UIView *riseyt_padded(UILabel *label) {
+    UIView *container = [UIView new];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:label];
+    [NSLayoutConstraint activateConstraints:@[
+        [label.leadingAnchor constraintEqualToAnchor:container.leadingAnchor constant:20],
+        [label.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-20],
+        [label.topAnchor constraintEqualToAnchor:container.topAnchor constant:8],
+        [label.bottomAnchor constraintEqualToAnchor:container.bottomAnchor constant:-8],
+    ]];
+    return container;
+}
+
+// Download picker: lists the qualities for the video that is playing.
+@interface RiseYTQualityViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+@property (nonatomic, copy) NSString *videoTitle;
+@property (nonatomic, copy) NSArray<RiseYTQualityOption *> *options;
+@property (nonatomic, copy) NSString *debugInfo;
+@end
+
+@implementation RiseYTQualityViewController {
+    UITableView *_table;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"Download";
+    self.view.backgroundColor = RY_BLACK;
+    self.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemClose target:self action:@selector(close)];
+
+    _table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    _table.translatesAutoresizingMaskIntoConstraints = NO;
+    _table.backgroundColor = RY_BLACK;
+    _table.dataSource = self;
+    _table.delegate = self;
+    [self.view addSubview:_table];
+    [NSLayoutConstraint activateConstraints:@[
+        [_table.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [_table.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [_table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [_table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+    ]];
+}
+
+- (void)close {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
+    return 2;
+}
+
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
+    if (section == 0) return self.options.count > 0 ? (NSInteger)self.options.count : 1;
+    return 1;
+}
+
+- (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)section {
+    UILabel *label = [UILabel new];
+    label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy];
+    label.textColor = RY_YELLOW;
+    label.numberOfLines = 2;
+    if (section == 0) {
+        NSString *text = self.videoTitle.length ? self.videoTitle : @"Choose a quality";
+        label.text = [text uppercaseString];
+    } else {
+        label.text = @"LIBRARY";
+    }
+    return riseyt_padded(label);
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)section {
+    return 40;
+}
+
+- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
+    if (section == 0 && self.options.count == 0) {
+        NSString *base = @"YouTube didn't expose a downloadable stream for this video. Live streams, premieres and some protected videos aren't supported.";
+        return self.debugInfo.length ? [base stringByAppendingFormat:@"\n\n[%@]", self.debugInfo] : base;
+    }
+    return nil;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
+    cell.backgroundColor = RY_CARD;
+    cell.textLabel.textColor = RY_WHITE;
+    cell.detailTextLabel.textColor = RY_YELLOW;
+    cell.tintColor = RY_YELLOW;
+
+    if (ip.section == 0) {
+        if (self.options.count == 0) {
+            cell.textLabel.text = @"No downloadable stream";
+            cell.textLabel.textColor = RY_MUTED;
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+            return cell;
+        }
+        RiseYTQualityOption *opt = self.options[ip.row];
+        cell.textLabel.text = opt.label;
+        cell.detailTextLabel.text = opt.audioOnly ? @"M4A" : @"MP4";
+    } else {
+        cell.textLabel.text = @"My downloads";
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    }
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    [tv deselectRowAtIndexPath:ip animated:YES];
+    UIViewController *presenter = self.navigationController.presentingViewController;
+    if (ip.section == 1) {
+        [self dismissViewControllerAnimated:YES completion:^{ riseyt_presentDownloads(presenter); }];
+        return;
+    }
+    if (self.options.count == 0) return;
+    RiseYTQualityOption *opt = self.options[ip.row];
+    NSString *title = self.videoTitle;
+    [self dismissViewControllerAnimated:YES completion:^{
+        [[RiseYT_DownloadManager sharedManager] startDownloadWithOption:opt title:title];
+    }];
+}
+
+@end
+
+static void riseyt_presentQualityPicker(UIViewController *host, NSArray<RiseYTQualityOption *> *options,
+                                        NSString *title, NSString *debug) {
+    if (!host) return;
+    RiseYTQualityViewController *vc = [RiseYTQualityViewController new];
+    vc.videoTitle = title;
+    vc.options = options;
+    vc.debugInfo = debug;
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    riseyt_styleNav(nav);
+    nav.modalPresentationStyle = UIModalPresentationPageSheet;
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.detents = @[[UISheetPresentationControllerDetent mediumDetent],
+                          [UISheetPresentationControllerDetent largeDetent]];
+        sheet.prefersGrabberVisible = YES;
+    }
+    [host presentViewController:nav animated:YES completion:nil];
+}
+
 static void riseyt_presentDownloads(UIViewController *from) {
     UIViewController *host = from ?: riseyt_topViewController();
     if (!host) return;
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:[RiseYTDownloadsViewController new]];
+    riseyt_styleNav(nav);
     nav.modalPresentationStyle = UIModalPresentationFormSheet;
     [host presentViewController:nav animated:YES completion:nil];
 }
@@ -1137,34 +1307,13 @@ static void riseyt_presentDownloadSheet(void) {
     UIViewController *player = riseyt_currentPlayer;
     NSString *title = nil;
     NSString *debug = nil;
-    NSArray<RiseYTQualityOption *> *options = player ? riseyt_optionsForPlayer(player, &title, &debug) : @[];
-
-    UIAlertController *sheet;
-    if (options.count == 0) {
-        sheet = [UIAlertController alertControllerWithTitle:@"RiseYT — Download"
-            message:(player
-                ? @"YouTube didn't provide a downloadable stream for this video (live streams, premieres and some protected videos aren't supported)."
-                : @"Start playing a video first, then tap download.")
-            preferredStyle:UIAlertControllerStyleAlert];
+    NSArray<RiseYTQualityOption *> *options = @[];
+    if (player) {
+        options = riseyt_optionsForPlayer(player, &title, &debug);
     } else {
-        sheet = [UIAlertController alertControllerWithTitle:@"RiseYT — Download"
-                                                    message:title
-                                             preferredStyle:UIAlertControllerStyleActionSheet];
-        for (RiseYTQualityOption *opt in options) {
-            [sheet addAction:[UIAlertAction actionWithTitle:opt.label style:UIAlertActionStyleDefault
-                handler:^(__unused UIAlertAction *a) {
-                    [[RiseYT_DownloadManager sharedManager] startDownloadWithOption:opt title:title];
-                }]];
-        }
+        debug = @"Start playing a video first.";
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:@"My Downloads" style:UIAlertActionStyleDefault
-        handler:^(__unused UIAlertAction *a) { riseyt_presentDownloads(nil); }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    if (options.count == 0 && debug) {
-        sheet.message = [(sheet.message ?: @"") stringByAppendingFormat:@"\n\n[%@]", debug];
-    }
-    riseyt_anchorPopover(sheet, host);
-    [host presentViewController:sheet animated:YES completion:nil];
+    riseyt_presentQualityPicker(host, options, title ?: @"Video", debug);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1194,12 +1343,10 @@ static const NSInteger kRiseYTDownloadButtonTag = 0x52594442;
         btn.tag = kRiseYTDownloadButtonTag;
         UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightSemibold];
         [btn setImage:[UIImage systemImageNamed:@"arrow.down.circle.fill" withConfiguration:cfg] forState:UIControlStateNormal];
-        btn.tintColor = [UIColor whiteColor];
+        btn.backgroundColor = RY_YELLOW;
+        btn.layer.cornerRadius = 22.0f;
+        btn.tintColor = RY_BLACK;
         btn.accessibilityLabel = @"Download video";
-        btn.layer.shadowColor = [UIColor blackColor].CGColor;
-        btn.layer.shadowOpacity = 0.5f;
-        btn.layer.shadowRadius = 3.0f;
-        btn.layer.shadowOffset = CGSizeZero;
         [btn addTarget:self action:@selector(riseyt_downloadTapped:) forControlEvents:UIControlEventTouchUpInside];
         [self addSubview:btn];
     }
@@ -1222,6 +1369,198 @@ static const NSInteger kRiseYTDownloadButtonTag = 0x52594442;
 //  asks for it. (The old code called selectors that don't
 //  exist, so the section never appeared.)
 // ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+//  MARK: — RISEYT SETTINGS SCREEN
+//  Full-screen page opened from YouTube's settings list.
+//  Black background, white text, yellow accents and a Hello banner.
+// ═══════════════════════════════════════════════════════
+
+@interface RiseYTSettingsViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+@end
+
+@implementation RiseYTSettingsViewController {
+    UITableView *_table;
+    UIView *_banner;
+    NSArray<NSDictionary *> *_sections;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"RiseYT";
+    self.view.backgroundColor = RY_BLACK;
+    self.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];
+
+    _sections = @[
+        @{@"title": @"Downloads", @"rows": @[
+            @{@"pref": @(RYDownloadButton), @"title": @"Download button", @"detail": @"Show the download button on the player"},
+            @{@"pref": @(RYSavePhotos), @"title": @"Save to Photos", @"detail": @"Also copy finished videos to the Photos app"},
+            @{@"action": @"downloads", @"title": @"My downloads", @"detail": @"Progress, pause, resume, share and delete"},
+        ]},
+        @{@"title": @"Playback", @"rows": @[
+            @{@"pref": @(RYBackground), @"title": @"Background playback", @"detail": @"Keep audio playing when the app is in the background"},
+            @{@"pref": @(RYPiP), @"title": @"Picture in Picture", @"detail": @"Allow Picture in Picture for videos"},
+            @{@"pref": @(RYPremium), @"title": @"Premium features", @"detail": @"Enable client-side premium feature flags"},
+            @{@"pref": @(RYHighRes), @"title": @"High resolutions", @"detail": @"Show 1440p and 4K where the video offers them"},
+        ]},
+        @{@"title": @"Ads & clutter", @"rows": @[
+            @{@"pref": @(RYAdBlock), @"title": @"Block ads", @"detail": @"Remove video, feed and banner ads"},
+            @{@"pref": @(RYHideEndscreen), @"title": @"Hide autoplay endscreen", @"detail": @"Hide the end-of-video autoplay overlay"},
+        ]},
+        @{@"title": @"Appearance", @"rows": @[
+            @{@"pref": @(RYGlass), @"title": @"Liquid Glass", @"detail": @"Frosted tab bar (restart YouTube to apply)"},
+            @{@"pref": @(RYThumbs), @"title": @"High-quality thumbnails", @"detail": @"Load sharper video thumbnails"},
+        ]},
+    ];
+
+    _banner = [self buildBanner];
+    _table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
+    _table.translatesAutoresizingMaskIntoConstraints = NO;
+    _table.backgroundColor = RY_BLACK;
+    _table.dataSource = self;
+    _table.delegate = self;
+    _table.tableHeaderView = _banner;
+    [self.view addSubview:_table];
+    [NSLayoutConstraint activateConstraints:@[
+        [_table.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [_table.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [_table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [_table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+    ]];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    // Table header views are sized by frame, so keep the banner as wide as the table.
+    CGFloat width = _table.bounds.size.width;
+    if (width > 0 && _banner.frame.size.width != width) {
+        CGRect frame = _banner.frame;
+        frame.size = CGSizeMake(width, 200);
+        _banner.frame = frame;
+        _table.tableHeaderView = _banner;
+    }
+}
+
+- (UIView *)buildBanner {
+    UIView *banner = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 200)];
+    banner.backgroundColor = RY_BLACK;
+
+    UIView *accent = [UIView new];
+    accent.backgroundColor = RY_YELLOW;
+    accent.layer.cornerRadius = 3.0f;
+    accent.translatesAutoresizingMaskIntoConstraints = NO;
+
+    UILabel *hello = [UILabel new];
+    hello.text = @"Hello";
+    hello.font = [UIFont systemFontOfSize:46 weight:UIFontWeightHeavy];
+    hello.textColor = RY_WHITE;
+
+    UILabel *welcome = [UILabel new];
+    welcome.text = @"Welcome to RiseYT";
+    welcome.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+    welcome.textColor = RY_YELLOW;
+
+    UILabel *tagline = [UILabel new];
+    tagline.text = @"Your YouTube, tuned the way you like it.";
+    tagline.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+    tagline.textColor = RY_MUTED;
+    tagline.numberOfLines = 0;
+
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[hello, welcome, tagline]];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 6.0f;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+
+    [banner addSubview:accent];
+    [banner addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [accent.leadingAnchor constraintEqualToAnchor:banner.leadingAnchor constant:20],
+        [accent.topAnchor constraintEqualToAnchor:banner.topAnchor constant:28],
+        [accent.widthAnchor constraintEqualToConstant:56],
+        [accent.heightAnchor constraintEqualToConstant:6],
+        [stack.leadingAnchor constraintEqualToAnchor:banner.leadingAnchor constant:20],
+        [stack.trailingAnchor constraintEqualToAnchor:banner.trailingAnchor constant:-20],
+        [stack.topAnchor constraintEqualToAnchor:accent.bottomAnchor constant:18],
+    ]];
+    return banner;
+}
+
+- (void)close {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
+    return _sections.count;
+}
+
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
+    return [_sections[section][@"rows"] count];
+}
+
+- (UIView *)tableView:(UITableView *)tv viewForHeaderInSection:(NSInteger)section {
+    UILabel *label = [UILabel new];
+    label.text = [[_sections[section][@"title"] description] uppercaseString];
+    label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy];
+    label.textColor = RY_YELLOW;
+    return riseyt_padded(label);
+}
+
+- (CGFloat)tableView:(UITableView *)tv heightForHeaderInSection:(NSInteger)section {
+    return 40;
+}
+
+- (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)section {
+    return section == (NSInteger)_sections.count - 1 ? @"RiseYT 1.4.0" : nil;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
+    NSDictionary *row = _sections[ip.section][@"rows"][ip.row];
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+    cell.backgroundColor = RY_CARD;
+    cell.textLabel.text = row[@"title"];
+    cell.textLabel.textColor = RY_WHITE;
+    cell.textLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+    cell.detailTextLabel.text = row[@"detail"];
+    cell.detailTextLabel.textColor = RY_MUTED;
+    cell.detailTextLabel.font = [UIFont systemFontOfSize:13];
+    cell.detailTextLabel.numberOfLines = 0;
+
+    if (row[@"pref"]) {
+        RiseYTPref pref = (RiseYTPref)[row[@"pref"] unsignedIntegerValue];
+        UISwitch *toggle = [UISwitch new];
+        toggle.onTintColor = RY_YELLOW;
+        toggle.on = PREF(pref);
+        toggle.tag = (NSInteger)pref;
+        [toggle addTarget:self action:@selector(togglePref:) forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = toggle;
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    } else {
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.tintColor = RY_YELLOW;
+    }
+    return cell;
+}
+
+- (void)togglePref:(UISwitch *)sender {
+    riseyt_setPref((RiseYTPref)sender.tag, sender.on);
+}
+
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    [tv deselectRowAtIndexPath:ip animated:YES];
+    NSDictionary *row = _sections[ip.section][@"rows"][ip.row];
+    if ([row[@"action"] isEqualToString:@"downloads"]) riseyt_presentDownloads(self);
+}
+
+@end
+
+static void riseyt_presentSettings(UIViewController *host) {
+    if (!host) return;
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:[RiseYTSettingsViewController new]];
+    riseyt_styleNav(nav);
+    nav.modalPresentationStyle = UIModalPresentationPageSheet;
+    [host presentViewController:nav animated:YES completion:nil];
+}
 
 static const NSInteger kRiseYTSection = 1201;
 
@@ -1246,69 +1585,21 @@ static NSMutableArray *riseyt_buildSettingsItems(UIViewController *settingsVC) {
     NSMutableArray *items = [NSMutableArray new];
     Class itemClass = objc_getClass("YTSettingsSectionItem");
     if (!itemClass) return items;
-    __weak UIViewController *weakVC = settingsVC;
-
     SEL actionSel = @selector(itemWithTitle:titleDescription:accessibilityIdentifier:detailTextBlock:selectBlock:);
-    BOOL canAction = [itemClass respondsToSelector:actionSel];
-    if (canAction) {
-        id dl = [itemClass itemWithTitle:@"Download current video"
-                        titleDescription:@"Pick a quality for the video that's playing"
-                 accessibilityIdentifier:@"riseyt_download_now"
-                         detailTextBlock:nil
-                             selectBlock:^BOOL(__unused YTSettingsCell *cell, __unused NSUInteger arg1) {
-            riseyt_presentDownloadSheet();
-            return YES;
-        }];
-        if (dl) [items addObject:dl];
-        id list = [itemClass itemWithTitle:@"Downloads"
-                          titleDescription:@"View progress, pause, resume, share or delete"
-                   accessibilityIdentifier:@"riseyt_downloads"
-                           detailTextBlock:nil
-                               selectBlock:^BOOL(__unused YTSettingsCell *cell, __unused NSUInteger arg1) {
-            riseyt_presentDownloads(weakVC);
-            return YES;
-        }];
-        if (list) [items addObject:list];
-    }
+    if (![itemClass respondsToSelector:actionSel]) return items;
 
-    SEL switchSel = @selector(switchItemWithTitle:titleDescription:accessibilityIdentifier:switchOn:switchBlock:settingItemId:);
-    if ([itemClass respondsToSelector:switchSel]) {
-        NSArray *rows = @[
-            // Ordered by group: downloads, playback, ads, appearance.
-            @[@(RYDownloadButton), @"Download button",          @"Show the download button on the player"],
-            @[@(RYSavePhotos),     @"Save downloads to Photos", @"Also copy finished videos to the Photos app"],
-            @[@(RYBackground),     @"Background playback",      @"Keep audio playing when the app is in the background"],
-            @[@(RYPiP),            @"Picture in Picture",       @"Allow Picture in Picture for videos"],
-            @[@(RYPremium),        @"Premium features",         @"Enable client-side premium feature flags"],
-            @[@(RYHighRes),        @"High resolutions",         @"Show 1440p and 4K where the video offers them"],
-            @[@(RYAdBlock),        @"Block ads",                @"Remove video, feed and banner ads"],
-            @[@(RYHideEndscreen),  @"Hide autoplay endscreen",  @"Hide the end-of-video autoplay overlay"],
-            @[@(RYThumbs),         @"High-quality thumbnails",  @"Load sharper video thumbnails"],
-            @[@(RYGlass),          @"Liquid Glass",             @"Frosted glass tab bar (restart YouTube to apply)"],
-        ];
-        for (NSArray *row in rows) {
-            RiseYTPref pref = (RiseYTPref)[row[0] unsignedIntegerValue];
-            id item = [itemClass switchItemWithTitle:row[1]
-                                    titleDescription:row[2]
-                             accessibilityIdentifier:riseyt_prefKey(pref)
-                                            switchOn:PREF(pref)
-                                         switchBlock:^BOOL(__unused YTSettingsCell *cell, BOOL enabled) {
-                riseyt_setPref(pref, enabled);
-                return YES;
-            }
-                                       settingItemId:0];
-            if (item) [items addObject:item];
-        }
-    }
-
-    if (canAction) {
-        id ver = [itemClass itemWithTitle:[@"RiseYT " stringByAppendingString:RISEYT_VERSION]
-                         titleDescription:@"Version"
-                  accessibilityIdentifier:@"riseyt_version"
-                          detailTextBlock:nil
-                              selectBlock:^BOOL(__unused YTSettingsCell *cell, __unused NSUInteger arg1) { return NO; }];
-        if (ver) [items addObject:ver];
-    }
+    __weak UIViewController *weakVC = settingsVC;
+    // One entry in YouTube's settings list. Everything else lives on the
+    // RiseYT screen, which is styled independently of YouTube's cells.
+    id entry = [itemClass itemWithTitle:@"RiseYT"
+                       titleDescription:@"Downloads, playback, ads and appearance"
+                accessibilityIdentifier:@"riseyt_open"
+                        detailTextBlock:nil
+                            selectBlock:^BOOL(__unused YTSettingsCell *cell, __unused NSUInteger arg1) {
+        riseyt_presentSettings(weakVC ?: riseyt_topViewController());
+        return YES;
+    }];
+    if (entry) [items addObject:entry];
     return items;
 }
 
