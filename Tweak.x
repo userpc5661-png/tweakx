@@ -1,3 +1,4 @@
+%config(generator=internal);
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
