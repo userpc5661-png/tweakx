@@ -897,7 +897,9 @@ static BOOL riseyt_pref(NSString *key) {
     NSLog(@"[RiseYT] v1.3.4 — Loaded ✅");
     [[UNUserNotificationCenter currentNotificationCenter]
         requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound | UNAuthorizationOptionBadge)
-                      completionHandler:nil];
+                      completionHandler:^(BOOL granted, NSError *error) {
+        if (error) NSLog(@"[RiseYT] Notification authorization failed: %@", error);
+    }];
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
     [[AVAudioSession sharedInstance] setActive:YES error:nil];
     %init;
