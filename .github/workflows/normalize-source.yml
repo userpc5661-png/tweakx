@@ -1,0 +1,28 @@
+name: Normalize extracted project files
+on:
+  push:
+    branches: [main]
+    paths: [source-repair.gz.b64]
+permissions:
+  contents: write
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore original file bytes
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, json, pathlib
+          data = pathlib.Path('source-repair.gz.b64').read_text().strip()
+          files = json.loads(gzip.decompress(base64.b64decode(data)))
+          for name, content in files.items():
+              path = pathlib.Path(name)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(content)
+              print(name, path.stat().st_size)
+          PY
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add .gitignore headers/RiseYTHeaders.h
+          git diff --cached --quiet || (git commit -m "Preserve exact original project files" && git push)
