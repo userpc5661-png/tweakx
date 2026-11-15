@@ -1,86 +1,63 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
-#import <AVFoundation/AVFoundation.h>
 
 // ─────────────────────────────────────────
-//  YouTube Internal Classes
+//  YouTube private classes
+//  Only the members RiseYT calls directly are declared here.
+//  Everything else is reached defensively (respondsToSelector / KVC)
+//  because YouTube renames internals between versions.
 // ─────────────────────────────────────────
 
-@interface YTGlobalConfig : NSObject
-- (BOOL)isAdsEnabled;
-- (void)setIsAdsEnabled:(BOOL)enabled;
-@end
-
-@interface YTColdConfig : NSObject
-- (BOOL)isPremiumUser;
-- (void)setIsPremiumUser:(BOOL)premium;
-- (BOOL)isBackgroundPlaybackEnabled;
-- (void)setIsBackgroundPlaybackEnabled:(BOOL)enabled;
-@end
-
-@interface YTHotConfig : NSObject
-- (BOOL)isAdsEnabled;
-- (void)setIsAdsEnabled:(BOOL)enabled;
-@end
-
-@interface YTBackgroundabilityPolicyImpl : NSObject
-- (BOOL)isBackgroundable;
-- (void)setIsBackgroundable:(BOOL)backgroundable;
-@end
-
-@interface YTOfflineVideoDownloader : NSObject
-+ (instancetype)sharedInstance;
-- (void)downloadVideoWithID:(NSString *)videoID quality:(NSString *)quality;
-@end
-
-// ─── Settings ───────────────────────────
+@class YTSettingsCell;
 
 @interface YTSettingsSectionItem : NSObject
-+ (instancetype)checkboxItemWithTitle:(NSString *)title
-                    titleDescription:(NSString *)description
-             accessibilityIdentifier:(NSString *)identifier
-                            switchOn:(BOOL)enabled
-                         switchBlock:(void (^)(id cell, BOOL on))switchBlock;
 + (instancetype)itemWithTitle:(NSString *)title
-            titleDescription:(NSString *)description
-     accessibilityIdentifier:(NSString *)identifier
-                  detailText:(NSString *)detailText
-                 selectBlock:(void (^)(id cell, NSIndexPath *indexPath))selectBlock;
-+ (instancetype)itemWithTitle:(NSString *)title
-                     accessoryType:(NSInteger)accessoryType
-               accessibilityLabel:(NSString *)accessibilityLabel
-                       detailText:(NSString *)detailText
-                      selectBlock:(void (^)(id cell))selectBlock;
-@end
-
-@interface YTSettingsGroupData : NSObject
-@property (nonatomic, strong) NSString *title;
-@property (nonatomic, strong) NSMutableArray *items;
-- (instancetype)initWithTitle:(NSString *)title items:(NSArray *)items;
+             titleDescription:(NSString *)titleDescription
+      accessibilityIdentifier:(NSString *)accessibilityIdentifier
+              detailTextBlock:(id)detailTextBlock
+                  selectBlock:(BOOL (^)(YTSettingsCell *cell, NSUInteger arg1))selectBlock;
++ (instancetype)switchItemWithTitle:(NSString *)title
+                   titleDescription:(NSString *)titleDescription
+            accessibilityIdentifier:(NSString *)accessibilityIdentifier
+                           switchOn:(BOOL)switchOn
+                        switchBlock:(BOOL (^)(YTSettingsCell *cell, BOOL enabled))switchBlock
+                      settingItemId:(int)settingItemId;
 @end
 
 @interface YTSettingsViewController : UIViewController
-- (void)setSectionItems:(NSArray *)items forCategory:(NSInteger)category title:(NSString *)title;
-- (void)reloadData;
-- (void)riseyt_injectSettings;
+- (void)setSectionItems:(NSMutableArray *)sectionItems
+            forCategory:(NSInteger)category
+                  title:(NSString *)title
+       titleDescription:(NSString *)titleDescription
+           headerHidden:(BOOL)headerHidden;
+- (void)setSectionItems:(NSMutableArray *)sectionItems
+            forCategory:(NSInteger)category
+                  title:(NSString *)title
+                   icon:(id)icon
+       titleDescription:(NSString *)titleDescription
+           headerHidden:(BOOL)headerHidden;
 @end
 
-// ─── UI Classes ─────────────────────────
-
-@interface YTTabBarViewController : UIViewController
+@interface YTSettingsSectionItemManager : NSObject
+- (void)riseyt_updateSectionWithEntry:(id)entry;
 @end
 
-@interface YTWatchNextResultsViewController : UIViewController
-- (void)riseyt_addDownloadButton;
+@interface YTSettingsGroupData : NSObject
+- (NSInteger)type;
+@end
+
+@interface YTPlayerViewController : UIViewController
+- (NSString *)currentVideoID;
+@end
+
+@interface YTMainAppControlsOverlayView : UIView
 - (void)riseyt_downloadTapped:(id)sender;
-- (NSString *)riseyt_currentVideoID;
-- (NSString *)riseyt_currentVideoTitle;
+@end
+
+@interface YTAutonavEndscreenViewController : UIViewController
 @end
 
 @interface YTPivotBarView : UIView
-@end
-
-@interface YTPivotBarViewController : UIViewController
 @end
 
 @interface YTFloatingPivotBarView : UIView
@@ -89,142 +66,70 @@
 @interface YTFrostedGlassView : UIView
 @end
 
-@interface YTHeaderView : UIView
-@end
-
-@interface YTTabTitlesView : UIView
-@end
-
-@interface YTHomeTabTitlesView : UIView
-@end
-
-@interface YTSubheaderContainerView : UIView
-@end
-
-@interface YTHeaderContentComboView : UIView
-@end
-
-@interface YTFloatingBarExperiment : NSObject
-- (BOOL)isEnabled;
-@end
-
-
-@interface YTAutonavEndscreenViewController : UIViewController
-@end
-@interface YTVideoActionBarView : UIView
-@end
 @interface YTCastDeviceView : UIView
 @end
 
-// ─── Ad Classes ─────────────────────────
-
-@interface YTMainAppAblateAdsCenter : NSObject
-- (BOOL)isAdFree;
-- (void)setIsAdFree:(BOOL)adFree;
-@end
-
-@interface YTInstreamAdTrackingController : NSObject
-@end
-
-@interface YTPremiumAdsSeenEventLogger : NSObject
-@end
-
-@interface YTAdCuepointEventCenter : NSObject
-@end
-
-@interface YTAdElementsCellController : NSObject
-@end
-
-@interface YTPromotedVideoCellController : NSObject
-@end
-
-@interface YTCompactPromotedVideoCellController : NSObject
-@end
-
-@interface YTCompactPromotedItemCellController : NSObject
+@interface YTThumbnailView : UIView
 @end
 
 // ─────────────────────────────────────────
-//  RiseYT Classes
+//  RiseYT classes
 // ─────────────────────────────────────────
 
-@class RiseYTDownloadTask;
-@interface RiseYT_DownloadManager : NSObject
-+ (instancetype)sharedManager;
-- (void)addDownloadWithURL:(NSURL *)url title:(NSString *)title quality:(NSString *)quality;
-- (void)cancelDownload:(RiseYTDownloadTask *)task;
-- (void)pauseDownload:(RiseYTDownloadTask *)task;
-- (void)resumeDownload:(RiseYTDownloadTask *)task;
-- (NSArray<RiseYTDownloadTask *> *)allDownloads;
-- (NSString *)downloadsDirectory;
-- (void)cancelDownloadAtIndex:(NSUInteger)index;
-- (void)pauseDownloadAtIndex:(NSUInteger)index;
-- (void)resumeDownloadAtIndex:(NSUInteger)index;
-- (NSArray *)activeDownloads;
-- (NSArray *)completedDownloads;
-- (NSString *)downloadDirectory;
+typedef NS_ENUM(NSInteger, RiseYTDownloadState) {
+    RiseYTDownloadStateDownloading = 0,
+    RiseYTDownloadStatePaused,
+    RiseYTDownloadStateMerging,
+    RiseYTDownloadStateCompleted,
+    RiseYTDownloadStateFailed,
+};
+
+@interface RiseYTQualityOption : NSObject
+@property (nonatomic, copy) NSString *label;
+@property (nonatomic, strong) NSURL *videoURL;   // nil for audio-only
+@property (nonatomic, strong) NSURL *audioURL;   // nil for single-file (progressive) video
+@property (nonatomic, assign) BOOL audioOnly;
+@property (nonatomic, assign) NSInteger height;
+@property (nonatomic, assign) long long bitrate;
 @end
 
 @interface RiseYTDownloadTask : NSObject
-@property (nonatomic, strong) NSString *title;
-@property (nonatomic, strong) NSString *quality;
-@property (nonatomic, strong) NSURL *url;
+@property (nonatomic, copy) NSString *identifier;
+@property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSString *quality;
+@property (nonatomic, strong) NSURL *videoURL;
+@property (nonatomic, strong) NSURL *audioURL;
+@property (nonatomic, assign) BOOL audioOnly;
 @property (nonatomic, assign) float progress;
-@property (nonatomic, assign) BOOL isPaused;
-@property (nonatomic, assign) BOOL isCompleted;
-@property (nonatomic, strong) NSString *localPath;
-@property (nonatomic, strong) NSURLSessionDownloadTask *sessionTask;
-@property (nonatomic, strong) NSData *resumeData;
+@property (nonatomic, assign) RiseYTDownloadState state;
+@property (nonatomic, copy) NSString *localPath;
+@property (nonatomic, copy) NSString *errorMessage;
+@property (nonatomic, readonly) BOOL isCompleted;
+@property (nonatomic, readonly) BOOL isPaused;
+// Internal transfer state
+@property (nonatomic, strong) NSURLSessionDownloadTask *videoTask;
+@property (nonatomic, strong) NSURLSessionDownloadTask *audioTask;
+@property (nonatomic, strong) NSData *videoResumeData;
+@property (nonatomic, strong) NSData *audioResumeData;
+@property (nonatomic, copy) NSString *videoFile;
+@property (nonatomic, copy) NSString *audioFile;
+@property (nonatomic, assign) int64_t videoWritten;
+@property (nonatomic, assign) int64_t videoExpected;
+@property (nonatomic, assign) int64_t audioWritten;
+@property (nonatomic, assign) int64_t audioExpected;
+@property (nonatomic, assign) float lastPostedProgress;
+- (void)updateProgress;
+@end
+
+@interface RiseYT_DownloadManager : NSObject
++ (instancetype)sharedManager;
+- (RiseYTDownloadTask *)startDownloadWithOption:(RiseYTQualityOption *)option title:(NSString *)title;
+- (void)pauseDownload:(RiseYTDownloadTask *)task;
+- (void)resumeDownload:(RiseYTDownloadTask *)task;
+- (void)removeDownload:(RiseYTDownloadTask *)task;
+- (NSArray<RiseYTDownloadTask *> *)allDownloads;
+- (NSString *)downloadsDirectory;
 @end
 
 @interface RiseYTDownloadsViewController : UIViewController
-+ (instancetype)sharedController;
-- (void)reloadData;
 @end
-
-@interface RiseYTHLSDownload : NSObject
-@property (nonatomic, strong) NSString *hlsURL;
-@property (nonatomic, strong) NSString *title;
-@property (nonatomic, strong) NSString *quality;
-- (instancetype)initWithHLSURL:(NSString *)url title:(NSString *)title quality:(NSString *)quality;
-- (void)startDownload;
-@end
-
-@interface RiseYTQualityOption : NSObject
-- (instancetype)initWithLabel:(NSString *)label url:(NSString *)url bitrate:(NSInteger)bitrate;
-+ (instancetype)optionWithLabel:(NSString *)label itag:(NSString *)itag resolution:(NSString *)resolution;
-@property (nonatomic, copy) NSString *itag;
-@property (nonatomic, copy) NSString *resolution;
-@property (nonatomic, strong) NSString *label;
-@property (nonatomic, strong) NSString *url;
-@property (nonatomic, assign) NSInteger bitrate;
-- (instancetype)initWithLabel:(NSString *)label url:(NSString *)url bitrate:(NSInteger)bitrate;
-@end
-
-@interface RiseYTQualitySheet : UIView
-@property (nonatomic, copy) NSString *videoID;
-@property (nonatomic, copy) NSString *videoTitle;
-@property (nonatomic, copy) void (^completion)(NSString *quality, NSString *itag);
-@property (nonatomic, copy) NSArray<RiseYTQualityOption *> *qualities;
-- (instancetype)initWithVideoID:(NSString *)videoID title:(NSString *)title completion:(void(^)(NSString *, NSString *))completion;
-- (void)presentFromViewController:(UIViewController *)vc;
-+ (void)presentWithOptions:(NSArray<RiseYTQualityOption *> *)options
-              fromController:(UIViewController *)controller
-                 completion:(void (^)(RiseYTQualityOption *selected))completion;
-@end
-
-@interface RiseYTProgressBar : UIView
-@property (nonatomic, assign) float progress;
-- (instancetype)initWithFrame:(CGRect)frame;
-- (void)setProgress:(float)progress animated:(BOOL)animated;
-@end
-
-@interface RiseYTCircularProgressButton : UIButton
-@property (nonatomic, assign) float progress;
-- (void)setProgress:(float)progress animated:(BOOL)animated;
-@end
-
-@interface RiseYTLocalize : NSObject
-+ (NSString *)localizedStringForKey:(NSString *)key;
-@end
-

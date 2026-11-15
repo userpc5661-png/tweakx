@@ -1,6 +1,6 @@
 Package: com.riseyt.tweak
 Name: RiseYT
-Version: 1.3.4
+Version: 1.4.0
 Architecture: iphoneos-arm64
 Description: YouTube enhancement tweak with downloads, premium features, ad blocking, and Liquid Glass UI.
 Maintainer: RiseYT Dev

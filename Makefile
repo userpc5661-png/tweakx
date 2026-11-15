@@ -7,7 +7,7 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = RiseYT
 RiseYT_FILES = Tweak.x
 RiseYT_CFLAGS = -fobjc-arc -I./headers
-RiseYT_FRAMEWORKS = UIKit Foundation AVFoundation Photos MediaPlayer Security WebKit AVKit UserNotifications BackgroundTasks
+RiseYT_FRAMEWORKS = UIKit Foundation AVFoundation CoreMedia Photos AVKit UserNotifications
 # Internal Logos generator does not need an external CydiaSubstrate library.
 RiseYT_GENERATOR = internal
 
