@@ -167,21 +167,8 @@ static void riseyt_stripPromotedSections(id model) {
     } @catch (__unused NSException *e) {}
 }
 
-static BOOL riseyt_isAdElement(id renderer) {
-    if (!riseyt_boolSel(renderer, @"hasCompatibilityOptions")) return NO;
-    id options = riseyt_kvc(renderer, @"compatibilityOptions");
-    return riseyt_boolSel(options, @"hasAdLoggingData");
-}
-
 %hook YTIPlayerResponse
 - (BOOL)isMonetized { return PREF(RYAdBlock) ? NO : %orig; }
-%end
-
-%hook YTIElementRenderer
-- (NSData *)elementData {
-    if (PREF(RYAdBlock) && riseyt_isAdElement(self)) return nil;
-    return %orig;
-}
 %end
 
 %hook YTSectionListViewController
@@ -197,15 +184,15 @@ static BOOL riseyt_isAdElement(id renderer) {
 %end
 
 %hook YTAdsInnerTubeContextDecorator
-- (void)decorateContext:(id)ctx { if (!PREF(RYAdBlock)) %orig; }
+- (id)decorateContext:(id)ctx { return PREF(RYAdBlock) ? ctx : %orig(ctx); }
 %end
 
 %hook YTAdsInnerTubeContextDecoratorImpl
-- (void)decorateContext:(id)ctx { if (!PREF(RYAdBlock)) %orig; }
+- (id)decorateContext:(id)ctx { return PREF(RYAdBlock) ? ctx : %orig(ctx); }
 %end
 
 %hook YTAccountScopedAdsInnerTubeContextDecorator
-- (void)decorateContext:(id)ctx { if (!PREF(RYAdBlock)) %orig; }
+- (id)decorateContext:(id)ctx { return PREF(RYAdBlock) ? ctx : %orig(ctx); }
 %end
 
 %hook YTContentVideoPlayerResponseSlotOpportunityAdapterImpl
@@ -1345,7 +1332,7 @@ static const NSInteger kRiseYTDownloadButtonTag = 0x52594442;
     }
     btn.hidden = NO;
     CGFloat size = 44.0f;
-    btn.frame = CGRectMake(floor((CGRectGetWidth(self.bounds) - size) / 2.0), 6.0f, size, size);
+    btn.frame = CGRectMake(CGRectGetWidth(self.bounds) - size - 12.0f, 6.0f, size, size);
     [self bringSubviewToFront:btn];
 }
 
