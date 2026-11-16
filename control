@@ -1,9 +1,11 @@
-Package: com.riseyt.tweak
-Name: RiseYT
-Version: 1.3.4
+Package: com.beegram.tweak
+Name: Beegram
+Version: 2.0.0
 Architecture: iphoneos-arm64
-Description: YouTube enhancement tweak with downloads, premium features, ad blocking, and Liquid Glass UI.
-Maintainer: RiseYT Dev
-Author: RiseYT Dev
+Description: Instagram Enhanced — Unlock hidden features, AI tools, privacy controls, and more.
+Maintainer: Beegram Dev
+Author: Beegram Team
 Section: Tweaks
-Depends: mobilesubstrate
+Depends: mobilesubstrate, firmware (>= 14.0)
+Homepage: https://github.com/userpc5661-png/tweakx
+Icon: file:///Library/PreferenceBundles/BeegramPrefs.bundle/icon.png
